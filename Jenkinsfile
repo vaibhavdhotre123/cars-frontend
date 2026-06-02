@@ -23,9 +23,9 @@ def runCmd(String cmd) {
 pipeline {
     agent any
 
-    tools {
-        nodejs 'node20'
-    }
+    // tools {
+    //     nodejs 'node20'
+    // }
 
     options {
         // Prefix log lines with timestamps.
