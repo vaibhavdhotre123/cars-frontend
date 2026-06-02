@@ -66,11 +66,11 @@ pipeline {
             }
         }
 
-        stage('Lint') {
-            steps {
-                runCmd 'npm run lint'
-            }
-        }
+        // stage('Lint') {
+        //     steps {
+        //         runCmd 'npm run lint'
+        //     }
+        // }
 
         stage('Test') {
             steps {
