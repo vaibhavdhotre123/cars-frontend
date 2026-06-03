@@ -67,15 +67,20 @@ const Icon = {
   Spinner: (p: IconProps) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={p.className}><path d="M21 12a9 9 0 1 1-6.2-8.5" /></svg>
   ),
+  Refresh: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 12a9 9 0 1 1-2.6-6.4" /><path d="M21 3v6h-6" /></svg>
+  ),
 };
 
-const NAV = [
-  { label: "Dashboard", icon: Icon.Grid, active: true },
-  { label: "Inventory", icon: Icon.Car, active: false },
-  { label: "Sales", icon: Icon.Tag, active: false },
-  { label: "Customers", icon: Icon.Users, active: false },
-  { label: "Reports", icon: Icon.Chart, active: false },
-  { label: "Settings", icon: Icon.Settings, active: false },
+type Tab = "Dashboard" | "Inventory" | "Sales" | "Customers" | "Reports" | "Settings";
+
+const NAV: { label: Tab; icon: typeof Icon.Grid }[] = [
+  { label: "Dashboard", icon: Icon.Grid },
+  { label: "Inventory", icon: Icon.Car },
+  { label: "Sales", icon: Icon.Tag },
+  { label: "Customers", icon: Icon.Users },
+  { label: "Reports", icon: Icon.Chart },
+  { label: "Settings", icon: Icon.Settings },
 ];
 
 const STATUS_STYLES: Record<CarStatus, string> = {
@@ -95,6 +100,7 @@ export default function DashboardPage() {
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"All" | CarStatus>("All");
+  const [activeTab, setActiveTab] = useState<Tab>("Dashboard");
 
   // Modal state: null = closed, { car: null } = add, { car } = edit.
   const [modal, setModal] = useState<{ car: Car | null } | null>(null);
@@ -152,7 +158,18 @@ export default function DashboardPage() {
     });
   }, [cars, query, filter]);
 
-  async function handleSaved(saved: Car, wasEdit: boolean) {
+  const soldCars = useMemo(() => cars.filter((c) => c.status === "Sold"), [cars]);
+  const reservedCars = useMemo(() => cars.filter((c) => c.status === "Reserved"), [cars]);
+  const avgSale = stats.soldCount ? stats.revenue / stats.soldCount : 0;
+
+  // Inventory grouped by make, most stock first — used by the Reports tab.
+  const byMake = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of cars) counts.set(c.make, (counts.get(c.make) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [cars]);
+
+  function handleSaved(saved: Car, wasEdit: boolean) {
     setCars((prev) =>
       wasEdit ? prev.map((c) => (c.id === saved.id ? saved : c)) : [...prev, saved]
     );
@@ -189,6 +206,21 @@ export default function DashboardPage() {
     .map((s) => s[0]?.toUpperCase() ?? "")
     .join("");
 
+  const showInventoryControls = activeTab === "Dashboard" || activeTab === "Inventory";
+
+  // Shared props for the reusable inventory table.
+  const tableCommon = {
+    loading,
+    loadError,
+    onRetry: refresh,
+    onEdit: (c: Car) => setModal({ car: c }),
+    onDelete: (c: Car) => {
+      setRowError(null);
+      setDeleting(c);
+    },
+    rowError,
+  };
+
   return (
     <div className="flex min-h-screen w-full bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50">
       {/* Sidebar */}
@@ -205,8 +237,10 @@ export default function DashboardPage() {
             <button
               key={item.label}
               type="button"
+              onClick={() => setActiveTab(item.label)}
+              aria-current={activeTab === item.label ? "page" : undefined}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                item.active
+                activeTab === item.label
                   ? "bg-black text-white dark:bg-white dark:text-black"
                   : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
               }`}
@@ -238,25 +272,31 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="relative hidden flex-1 max-w-md sm:block">
-            <Icon.Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search inventory…"
-              className="w-full rounded-lg border border-black/15 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-black dark:border-white/20 dark:focus:border-white"
-            />
-          </div>
+          {showInventoryControls ? (
+            <div className="relative hidden flex-1 max-w-md sm:block">
+              <Icon.Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search inventory…"
+                className="w-full rounded-lg border border-black/15 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-black dark:border-white/20 dark:focus:border-white"
+              />
+            </div>
+          ) : (
+            <h2 className="hidden text-base font-semibold sm:block">{activeTab}</h2>
+          )}
 
           <div className="ml-auto flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setModal({ car: null })}
-              className="flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            >
-              <Icon.Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add car</span>
-            </button>
+            {showInventoryControls && (
+              <button
+                type="button"
+                onClick={() => setModal({ car: null })}
+                className="flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+              >
+                <Icon.Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add car</span>
+              </button>
+            )}
             <button
               onClick={handleLogout}
               title="Log out"
@@ -268,199 +308,258 @@ export default function DashboardPage() {
           </div>
         </header>
 
+        {/* Mobile tab nav (sidebar is hidden below lg) */}
+        <nav className="flex gap-1 overflow-x-auto border-b border-black/10 bg-white px-3 py-2 lg:hidden dark:border-white/10 dark:bg-zinc-950">
+          {NAV.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => setActiveTab(item.label)}
+              aria-current={activeTab === item.label ? "page" : undefined}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === item.label
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
         {/* Scrollable content */}
         <main className="flex-1 px-4 py-6 sm:px-6">
           <div className="mx-auto w-full max-w-6xl">
-            {/* Greeting */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Welcome back, {displayName} 👋
-              </h1>
-              <p className="mt-1 text-sm text-zinc-500">
-                Here&apos;s what&apos;s happening across your dealership today.
-              </p>
-            </div>
+            {/* ----- DASHBOARD ----- */}
+            {activeTab === "Dashboard" && (
+              <>
+                <PageHeading
+                  title={`Welcome back, ${displayName} 👋`}
+                  subtitle="Here's what's happening across your dealership today."
+                />
 
-            {/* KPI cards */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Total inventory" value={number.format(stats.total)} hint="vehicles in stock" icon={<Icon.Car className="h-5 w-5" />} />
-              <StatCard label="Available now" value={number.format(stats.available)} hint="ready to sell" icon={<Icon.Tag className="h-5 w-5" />} />
-              <StatCard label="Sold" value={number.format(stats.soldCount)} hint="closed deals" icon={<Icon.Up className="h-5 w-5" />} />
-              <StatCard label="Revenue" value={currency.format(stats.revenue)} hint="from closed deals" icon={<Icon.Chart className="h-5 w-5" />} />
-            </section>
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <StatCard label="Total inventory" value={number.format(stats.total)} hint="vehicles in stock" icon={<Icon.Car className="h-5 w-5" />} />
+                  <StatCard label="Available now" value={number.format(stats.available)} hint="ready to sell" icon={<Icon.Tag className="h-5 w-5" />} />
+                  <StatCard label="Sold" value={number.format(stats.soldCount)} hint="closed deals" icon={<Icon.Up className="h-5 w-5" />} />
+                  <StatCard label="Revenue" value={currency.format(stats.revenue)} hint="from closed deals" icon={<Icon.Chart className="h-5 w-5" />} />
+                </section>
 
-            {/* Content grid */}
-            <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-              {/* Inventory table */}
-              <section className="xl:col-span-2 rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 p-4 dark:border-white/10">
-                  <div>
-                    <h2 className="text-base font-semibold">Inventory</h2>
-                    <p className="text-xs text-zinc-500">
-                      {loading ? "Loading…" : `${filtered.length} of ${cars.length} vehicles`}
-                    </p>
+                <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+                  <div className="xl:col-span-2">
+                    <InventoryTable
+                      {...tableCommon}
+                      title="Inventory"
+                      subtitle={`${filtered.length} of ${cars.length} vehicles`}
+                      items={filtered}
+                      filter={filter}
+                      onFilter={setFilter}
+                      emptyMessage={
+                        cars.length === 0
+                          ? "No cars yet. Click “Add car” to create your first one."
+                          : "No vehicles match your search."
+                      }
+                    />
                   </div>
-                  <div className="flex items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-white/5">
-                    {(["All", ...STATUSES] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setFilter(f)}
-                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                          filter === f
-                            ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white"
-                            : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
-                        }`}
-                      >
-                        {f}
-                      </button>
-                    ))}
-                  </div>
+
+                  <section className="flex flex-col gap-6">
+                    <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                      <h2 className="text-base font-semibold">Stock value</h2>
+                      <p className="mt-1 text-xs text-zinc-500">Unsold inventory at list price</p>
+                      <p className="mt-4 text-3xl font-semibold tracking-tight">{currency.format(stats.stockValue)}</p>
+                      <div className="mt-4 space-y-3">
+                        {STATUSES.map((s) => {
+                          const count = cars.filter((c) => c.status === s).length;
+                          const pct = cars.length ? Math.round((count / cars.length) * 100) : 0;
+                          return <Bar key={s} label={s} value={`${count} · ${pct}%`} pct={pct} />;
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                      <h2 className="text-base font-semibold">Recently added</h2>
+                      {cars.length === 0 ? (
+                        <p className="mt-4 text-sm text-zinc-400">No vehicles yet.</p>
+                      ) : (
+                        <ul className="mt-4 space-y-4">
+                          {[...cars].sort((a, b) => b.id - a.id).slice(0, 5).map((c) => (
+                            <li key={c.id} className="flex items-start gap-3">
+                              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
+                                <Icon.Car className="h-4 w-4" />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">{c.make} {c.model}</p>
+                                <p className="text-xs text-zinc-500">{c.year} · {currency.format(c.price)}</p>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[c.status]}`}>
+                                {c.status}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </section>
                 </div>
+              </>
+            )}
 
-                {rowError && (
-                  <p className="mx-4 mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
-                    {rowError}
+            {/* ----- INVENTORY ----- */}
+            {activeTab === "Inventory" && (
+              <>
+                <PageHeading title="Inventory" subtitle="Manage every vehicle in your stock." />
+                <InventoryTable
+                  {...tableCommon}
+                  title="All vehicles"
+                  subtitle={`${filtered.length} of ${cars.length} vehicles`}
+                  items={filtered}
+                  filter={filter}
+                  onFilter={setFilter}
+                  emptyMessage={
+                    cars.length === 0
+                      ? "No cars yet. Click “Add car” to create your first one."
+                      : "No vehicles match your search."
+                  }
+                />
+              </>
+            )}
+
+            {/* ----- SALES ----- */}
+            {activeTab === "Sales" && (
+              <>
+                <PageHeading title="Sales" subtitle="Closed deals and revenue performance." />
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <StatCard label="Units sold" value={number.format(stats.soldCount)} hint="all time" icon={<Icon.Tag className="h-5 w-5" />} />
+                  <StatCard label="Revenue" value={currency.format(stats.revenue)} hint="from closed deals" icon={<Icon.Chart className="h-5 w-5" />} />
+                  <StatCard label="Avg. sale price" value={currency.format(avgSale)} hint="per vehicle" icon={<Icon.Up className="h-5 w-5" />} />
+                  <StatCard label="Reserved" value={number.format(reservedCars.length)} hint="pending deals" icon={<Icon.Car className="h-5 w-5" />} />
+                </section>
+                <div className="mt-6">
+                  <InventoryTable
+                    {...tableCommon}
+                    title="Closed deals"
+                    subtitle={`${soldCars.length} sold`}
+                    items={soldCars}
+                    emptyMessage="No vehicles sold yet. Mark a car as “Sold” to see it here."
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ----- CUSTOMERS ----- */}
+            {activeTab === "Customers" && (
+              <>
+                <PageHeading title="Customers" subtitle="Buyer records and contact history." />
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-black/15 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-300">
+                    <Icon.Users className="h-6 w-6" />
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold">No customer records yet</h3>
+                  <p className="mt-1 max-w-sm text-sm text-zinc-500">
+                    Customer management isn&apos;t connected to a backend yet. Once a
+                    customers API exists, buyers and their purchase history will appear here.
                   </p>
-                )}
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-black/5 text-xs uppercase tracking-wide text-zinc-400 dark:border-white/10">
-                        <th className="px-4 py-3 font-medium">Vehicle</th>
-                        <th className="px-4 py-3 font-medium">Year</th>
-                        <th className="hidden px-4 py-3 font-medium sm:table-cell">Mileage</th>
-                        <th className="px-4 py-3 font-medium">Price</th>
-                        <th className="px-4 py-3 font-medium">Status</th>
-                        <th className="px-4 py-3 text-right font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {!loading && !loadError && filtered.map((c) => (
-                        <tr key={c.id} className="border-b border-black/5 last:border-0 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]">
-                          <td className="px-4 py-3">
-                            <div className="font-medium">{c.make} {c.model}</div>
-                            <div className="text-xs text-zinc-400">#{c.id}</div>
-                          </td>
-                          <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{c.year}</td>
-                          <td className="hidden px-4 py-3 text-zinc-600 sm:table-cell dark:text-zinc-400">{number.format(c.mileage)} mi</td>
-                          <td className="px-4 py-3 font-medium">{currency.format(c.price)}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[c.status]}`}>
-                              {c.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => setModal({ car: c })}
-                                title="Edit"
-                                className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
-                              >
-                                <Icon.Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => { setRowError(null); setDeleting(c); }}
-                                title="Delete"
-                                className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                              >
-                                <Icon.Trash className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-
-                      {loading && (
-                        <tr>
-                          <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-400">
-                            <Icon.Spinner className="mx-auto h-5 w-5 animate-spin" />
-                            <span className="mt-2 block">Loading inventory…</span>
-                          </td>
-                        </tr>
-                      )}
-
-                      {!loading && loadError && (
-                        <tr>
-                          <td colSpan={6} className="px-4 py-10 text-center text-sm">
-                            <p className="text-red-600 dark:text-red-400">{loadError}</p>
-                            <button
-                              onClick={refresh}
-                              className="mt-3 rounded-full border border-black/15 px-4 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-                            >
-                              Retry
-                            </button>
-                          </td>
-                        </tr>
-                      )}
-
-                      {!loading && !loadError && filtered.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-400">
-                            {cars.length === 0
-                              ? "No cars yet. Click “Add car” to create your first one."
-                              : "No vehicles match your search."}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                  <p className="mt-4 text-xs text-zinc-400">
+                    {stats.soldCount} {stats.soldCount === 1 ? "deal has" : "deals have"} been closed so far.
+                  </p>
+                  <button
+                    type="button"
+                    disabled
+                    className="mt-6 cursor-not-allowed rounded-full border border-black/15 px-4 py-2 text-sm font-medium text-zinc-400 dark:border-white/15"
+                  >
+                    Add customer (coming soon)
+                  </button>
                 </div>
-              </section>
+              </>
+            )}
 
-              {/* Side column: stock value + recent activity */}
-              <section className="flex flex-col gap-6">
-                <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
-                  <h2 className="text-base font-semibold">Stock value</h2>
-                  <p className="mt-1 text-xs text-zinc-500">Unsold inventory at list price</p>
-                  <p className="mt-4 text-3xl font-semibold tracking-tight">{currency.format(stats.stockValue)}</p>
-                  <div className="mt-4 space-y-3">
-                    {STATUSES.map((s) => {
-                      const count = cars.filter((c) => c.status === s).length;
-                      const pct = cars.length ? Math.round((count / cars.length) * 100) : 0;
-                      return (
-                        <div key={s}>
-                          <div className="mb-1 flex justify-between text-xs">
-                            <span className="text-zinc-500">{s}</span>
-                            <span className="font-medium">{count} · {pct}%</span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
-                            <div className="h-full rounded-full bg-black dark:bg-white" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
+            {/* ----- REPORTS ----- */}
+            {activeTab === "Reports" && (
+              <>
+                <PageHeading title="Reports" subtitle="Inventory and sales analytics." />
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <StatCard label="Total units" value={number.format(stats.total)} hint="in catalogue" icon={<Icon.Car className="h-5 w-5" />} />
+                  <StatCard label="Stock value" value={currency.format(stats.stockValue)} hint="unsold at list price" icon={<Icon.Tag className="h-5 w-5" />} />
+                  <StatCard label="Revenue" value={currency.format(stats.revenue)} hint="from closed deals" icon={<Icon.Chart className="h-5 w-5" />} />
+                  <StatCard label="Avg. sale price" value={currency.format(avgSale)} hint="per vehicle" icon={<Icon.Up className="h-5 w-5" />} />
+                </section>
+
+                <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                    <h2 className="text-base font-semibold">Inventory by status</h2>
+                    {cars.length === 0 ? (
+                      <p className="mt-4 text-sm text-zinc-400">No data yet.</p>
+                    ) : (
+                      <div className="mt-4 space-y-3">
+                        {STATUSES.map((s) => {
+                          const count = cars.filter((c) => c.status === s).length;
+                          const pct = Math.round((count / cars.length) * 100);
+                          return <Bar key={s} label={s} value={`${count} · ${pct}%`} pct={pct} />;
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                    <h2 className="text-base font-semibold">Inventory by make</h2>
+                    {byMake.length === 0 ? (
+                      <p className="mt-4 text-sm text-zinc-400">No data yet.</p>
+                    ) : (
+                      <div className="mt-4 space-y-3">
+                        {byMake.map(([make, count]) => {
+                          const pct = Math.round((count / cars.length) * 100);
+                          return <Bar key={make} label={make} value={String(count)} pct={pct} />;
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
+              </>
+            )}
 
-                <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
-                  <h2 className="text-base font-semibold">Recently added</h2>
-                  {cars.length === 0 ? (
-                    <p className="mt-4 text-sm text-zinc-400">No vehicles yet.</p>
-                  ) : (
-                    <ul className="mt-4 space-y-4">
-                      {[...cars]
-                        .sort((a, b) => b.id - a.id)
-                        .slice(0, 5)
-                        .map((c) => (
-                          <li key={c.id} className="flex items-start gap-3">
-                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
-                              <Icon.Car className="h-4 w-4" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{c.make} {c.model}</p>
-                              <p className="text-xs text-zinc-500">{c.year} · {currency.format(c.price)}</p>
-                            </div>
-                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[c.status]}`}>
-                              {c.status}
-                            </span>
-                          </li>
-                        ))}
-                    </ul>
-                  )}
+            {/* ----- SETTINGS ----- */}
+            {activeTab === "Settings" && (
+              <>
+                <PageHeading title="Settings" subtitle="Your account and app preferences." />
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                    <h2 className="text-base font-semibold">Account</h2>
+                    <dl className="mt-4 space-y-3 text-sm">
+                      <Row label="Name" value={user.name || "—"} />
+                      <Row label="Email" value={user.email} />
+                      <Row label="User ID" value={String(user.id)} />
+                    </dl>
+                  </div>
+
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                    <h2 className="text-base font-semibold">Preferences</h2>
+                    <dl className="mt-4 space-y-3 text-sm">
+                      <Row label="Appearance" value="Follows system theme" />
+                      <Row label="Data source" value="cars-backend (live)" />
+                      <Row label="Vehicles loaded" value={number.format(cars.length)} />
+                    </dl>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        onClick={refresh}
+                        disabled={loading}
+                        className="flex items-center gap-2 rounded-full border border-black/15 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/5 disabled:opacity-60 dark:border-white/20 dark:hover:bg-white/10"
+                      >
+                        <Icon.Refresh className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                        Refresh inventory
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                      >
+                        <Icon.Logout className="h-4 w-4" />
+                        Log out
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </section>
-            </div>
+              </>
+            )}
           </div>
         </main>
       </div>
@@ -504,6 +603,151 @@ export default function DashboardPage() {
         </Overlay>
       )}
     </div>
+  );
+}
+
+// ---- Reusable inventory table ---------------------------------------------
+function InventoryTable({
+  title,
+  subtitle,
+  items,
+  loading,
+  loadError,
+  onRetry,
+  onEdit,
+  onDelete,
+  rowError,
+  filter,
+  onFilter,
+  emptyMessage,
+}: {
+  title: string;
+  subtitle?: string;
+  items: Car[];
+  loading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
+  onEdit: (c: Car) => void;
+  onDelete: (c: Car) => void;
+  rowError: string | null;
+  filter?: "All" | CarStatus;
+  onFilter?: (f: "All" | CarStatus) => void;
+  emptyMessage?: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 p-4 dark:border-white/10">
+        <div>
+          <h2 className="text-base font-semibold">{title}</h2>
+          <p className="text-xs text-zinc-500">{loading ? "Loading…" : subtitle}</p>
+        </div>
+        {onFilter && filter !== undefined && (
+          <div className="flex items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-white/5">
+            {(["All", ...STATUSES] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => onFilter(f)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  filter === f
+                    ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {rowError && (
+        <p className="mx-4 mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
+          {rowError}
+        </p>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-black/5 text-xs uppercase tracking-wide text-zinc-400 dark:border-white/10">
+              <th className="px-4 py-3 font-medium">Vehicle</th>
+              <th className="px-4 py-3 font-medium">Year</th>
+              <th className="hidden px-4 py-3 font-medium sm:table-cell">Mileage</th>
+              <th className="px-4 py-3 font-medium">Price</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!loading && !loadError && items.map((c) => (
+              <tr key={c.id} className="border-b border-black/5 last:border-0 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]">
+                <td className="px-4 py-3">
+                  <div className="font-medium">{c.make} {c.model}</div>
+                  <div className="text-xs text-zinc-400">#{c.id}</div>
+                </td>
+                <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{c.year}</td>
+                <td className="hidden px-4 py-3 text-zinc-600 sm:table-cell dark:text-zinc-400">{number.format(c.mileage)} mi</td>
+                <td className="px-4 py-3 font-medium">{currency.format(c.price)}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[c.status]}`}>
+                    {c.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => onEdit(c)}
+                      title="Edit"
+                      className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+                    >
+                      <Icon.Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(c)}
+                      title="Delete"
+                      className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                    >
+                      <Icon.Trash className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+
+            {loading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-400">
+                  <Icon.Spinner className="mx-auto h-5 w-5 animate-spin" />
+                  <span className="mt-2 block">Loading inventory…</span>
+                </td>
+              </tr>
+            )}
+
+            {!loading && loadError && (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-sm">
+                  <p className="text-red-600 dark:text-red-400">{loadError}</p>
+                  <button
+                    onClick={onRetry}
+                    className="mt-3 rounded-full border border-black/15 px-4 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                  >
+                    Retry
+                  </button>
+                </td>
+              </tr>
+            )}
+
+            {!loading && !loadError && items.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-400">
+                  {emptyMessage ?? "Nothing to show."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -614,6 +858,39 @@ function CarFormModal({
         </div>
       </form>
     </Overlay>
+  );
+}
+
+// ---- Small presentational helpers -----------------------------------------
+function PageHeading({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="mb-6">
+      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>
+    </div>
+  );
+}
+
+function Bar({ label, value, pct }: { label: string; value: string; pct: number }) {
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-xs">
+        <span className="text-zinc-500">{label}</span>
+        <span className="font-medium">{value}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
+        <div className="h-full rounded-full bg-black dark:bg-white" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-black/5 pb-2 last:border-0 dark:border-white/10">
+      <dt className="text-zinc-500">{label}</dt>
+      <dd className="font-medium">{value}</dd>
+    </div>
   );
 }
 
