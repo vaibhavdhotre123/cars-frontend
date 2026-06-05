@@ -70,6 +70,15 @@ const Icon = {
   Refresh: (p: IconProps) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 12a9 9 0 1 1-2.6-6.4" /><path d="M21 3v6h-6" /></svg>
   ),
+  Sun: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+  ),
+  Moon: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+  ),
+  Grip: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={p.className}><circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" /></svg>
+  ),
 };
 
 type Tab = "Dashboard" | "Inventory" | "Sales" | "Customers" | "Reports" | "Settings";
@@ -82,6 +91,10 @@ const NAV: { label: Tab; icon: typeof Icon.Grid }[] = [
   { label: "Reports", icon: Icon.Chart },
   { label: "Settings", icon: Icon.Settings },
 ];
+
+// Keys for the reorderable dashboard KPI cards (drag to rearrange; saved to localStorage).
+const DEFAULT_KPI_ORDER = ["total", "available", "sold", "revenue"];
+const KPI_STORAGE_KEY = "kpiOrder";
 
 const STATUS_STYLES: Record<CarStatus, string> = {
   Available: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-400/20",
@@ -101,6 +114,12 @@ export default function DashboardPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"All" | CarStatus>("All");
   const [activeTab, setActiveTab] = useState<Tab>("Dashboard");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  // Drag-to-reorder state for the KPI cards.
+  const [kpiOrder, setKpiOrder] = useState<string[]>(DEFAULT_KPI_ORDER);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   // Modal state: null = closed, { car: null } = add, { car } = edit.
   const [modal, setModal] = useState<{ car: Car | null } | null>(null);
@@ -133,6 +152,25 @@ export default function DashboardPage() {
   useEffect(() => {
     if (checked) refresh();
   }, [checked, refresh]);
+
+  // Reflect the theme the init script already applied to <html>.
+  useEffect(() => {
+    setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+  }, []);
+
+  // Restore a saved KPI card order (only if it's a valid permutation of the keys).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(KPI_STORAGE_KEY);
+      if (!saved) return;
+      const arr = JSON.parse(saved) as string[];
+      const valid =
+        Array.isArray(arr) &&
+        arr.length === DEFAULT_KPI_ORDER.length &&
+        DEFAULT_KPI_ORDER.every((k) => arr.includes(k));
+      if (valid) setKpiOrder(arr);
+    } catch {}
+  }, []);
 
   const stats = useMemo(() => {
     const total = cars.length;
@@ -196,6 +234,32 @@ export default function DashboardPage() {
     router.replace("/login");
   }
 
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.classList.toggle("dark", next === "dark");
+    try {
+      localStorage.setItem("theme", next);
+    } catch {}
+    setTheme(next);
+  }
+
+  // Move the dragged KPI card to the dropped-on card's position and persist.
+  function moveKpi(targetKey: string) {
+    setDragOverKey(null);
+    if (!dragKey || dragKey === targetKey) return;
+    const next = [...kpiOrder];
+    const from = next.indexOf(dragKey);
+    const to = next.indexOf(targetKey);
+    if (from === -1 || to === -1) return;
+    next.splice(from, 1);
+    next.splice(to, 0, dragKey);
+    setKpiOrder(next);
+    setDragKey(null);
+    try {
+      localStorage.setItem(KPI_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+  }
+
   // Avoid flashing protected content before the auth check runs.
   if (!checked || !user) return null;
 
@@ -207,6 +271,14 @@ export default function DashboardPage() {
     .join("");
 
   const showInventoryControls = activeTab === "Dashboard" || activeTab === "Inventory";
+
+  // Definitions for the reorderable KPI cards, keyed so order can be persisted.
+  const kpiCards: Record<string, { label: string; value: string; hint: string; icon: React.ReactNode }> = {
+    total: { label: "Total inventory", value: number.format(stats.total), hint: "vehicles in stock", icon: <Icon.Car className="h-5 w-5" /> },
+    available: { label: "Available now", value: number.format(stats.available), hint: "ready to sell", icon: <Icon.Tag className="h-5 w-5" /> },
+    sold: { label: "Sold", value: number.format(stats.soldCount), hint: "closed deals", icon: <Icon.Up className="h-5 w-5" /> },
+    revenue: { label: "Revenue", value: currency.format(stats.revenue), hint: "from closed deals", icon: <Icon.Chart className="h-5 w-5" /> },
+  };
 
   // Shared props for the reusable inventory table.
   const tableCommon = {
@@ -298,6 +370,16 @@ export default function DashboardPage() {
               </button>
             )}
             <button
+              onClick={toggleTheme}
+              type="button"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label="Toggle theme"
+              aria-pressed={theme === "dark"}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/15 text-zinc-600 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+            >
+              {theme === "dark" ? <Icon.Sun className="h-4 w-4" /> : <Icon.Moon className="h-4 w-4" />}
+            </button>
+            <button
               onClick={handleLogout}
               title="Log out"
               className="flex items-center gap-2 rounded-full border border-black/15 px-3 py-2 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -340,10 +422,28 @@ export default function DashboardPage() {
                 />
 
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <StatCard label="Total inventory" value={number.format(stats.total)} hint="vehicles in stock" icon={<Icon.Car className="h-5 w-5" />} />
-                  <StatCard label="Available now" value={number.format(stats.available)} hint="ready to sell" icon={<Icon.Tag className="h-5 w-5" />} />
-                  <StatCard label="Sold" value={number.format(stats.soldCount)} hint="closed deals" icon={<Icon.Up className="h-5 w-5" />} />
-                  <StatCard label="Revenue" value={currency.format(stats.revenue)} hint="from closed deals" icon={<Icon.Chart className="h-5 w-5" />} />
+                  {kpiOrder.map((key) => {
+                    const card = kpiCards[key];
+                    if (!card) return null;
+                    return (
+                      <div
+                        key={key}
+                        draggable
+                        onDragStart={() => setDragKey(key)}
+                        onDragEnd={() => { setDragKey(null); setDragOverKey(null); }}
+                        onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== key) setDragOverKey(key); }}
+                        onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
+                        onDrop={() => moveKpi(key)}
+                        title="Drag to reorder"
+                        className={`group relative cursor-grab rounded-2xl transition active:cursor-grabbing ${
+                          dragKey === key ? "opacity-40" : ""
+                        } ${dragOverKey === key && dragKey && dragKey !== key ? "ring-2 ring-black/30 dark:ring-white/40" : ""}`}
+                      >
+                        <Icon.Grip className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-zinc-600" />
+                        <StatCard label={card.label} value={card.value} hint={card.hint} icon={card.icon} />
+                      </div>
+                    );
+                  })}
                 </section>
 
                 <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -364,19 +464,6 @@ export default function DashboardPage() {
                   </div>
 
                   <section className="flex flex-col gap-6">
-                    <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
-                      <h2 className="text-base font-semibold">Stock value</h2>
-                      <p className="mt-1 text-xs text-zinc-500">Unsold inventory at list price</p>
-                      <p className="mt-4 text-3xl font-semibold tracking-tight">{currency.format(stats.stockValue)}</p>
-                      <div className="mt-4 space-y-3">
-                        {STATUSES.map((s) => {
-                          const count = cars.filter((c) => c.status === s).length;
-                          const pct = cars.length ? Math.round((count / cars.length) * 100) : 0;
-                          return <Bar key={s} label={s} value={`${count} · ${pct}%`} pct={pct} />;
-                        })}
-                      </div>
-                    </div>
-
                     <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
                       <h2 className="text-base font-semibold">Recently added</h2>
                       {cars.length === 0 ? (
