@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Use class-based dark mode (.dark on <html>) instead of the OS preference,
+   so the in-app theme toggle can control it. The init script in layout.tsx
+   sets the initial class (saved choice, else OS preference). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,11 +17,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
