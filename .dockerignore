@@ -1,0 +1,31 @@
+# Dependencies & build output (rebuilt inside the image)
+node_modules
+.next
+out
+build
+
+# Env files — keep secrets out of the image (NEXT_PUBLIC_* come via --build-arg)
+.env*
+
+# Logs
+*.log
+dev.log
+npm-debug.log*
+
+# Git & CI
+.git
+.gitignore
+Jenkinsfile
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+
+# Docker itself
+Dockerfile
+.dockerignore
+
+# Misc dev files
+*.tsbuildinfo
+test.py

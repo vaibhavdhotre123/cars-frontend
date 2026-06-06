@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, clearUser, type AppUser } from "../lib/auth";
 import {
@@ -121,6 +121,10 @@ export default function DashboardPage() {
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
+  // Profile popup (top-right avatar menu).
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
   // Modal state: null = closed, { car: null } = add, { car } = edit.
   const [modal, setModal] = useState<{ car: Car | null } | null>(null);
   const [deleting, setDeleting] = useState<Car | null>(null);
@@ -157,6 +161,25 @@ export default function DashboardPage() {
   useEffect(() => {
     setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
   }, []);
+
+  // Close the profile popup when clicking outside it or pressing Escape.
+  useEffect(() => {
+    if (!profileOpen) return;
+    function onDown(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [profileOpen]);
 
   // Restore a saved KPI card order (only if it's a valid permutation of the keys).
   useEffect(() => {
@@ -379,14 +402,63 @@ export default function DashboardPage() {
             >
               {theme === "dark" ? <Icon.Sun className="h-4 w-4" /> : <Icon.Moon className="h-4 w-4" />}
             </button>
-            <button
-              onClick={handleLogout}
-              title="Log out"
-              className="flex items-center gap-2 rounded-full border border-black/15 px-3 py-2 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-            >
-              <Icon.Logout className="h-4 w-4" />
-              <span className="hidden sm:inline">Log out</span>
-            </button>
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen((o) => !o)}
+                type="button"
+                title="Account"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-sm font-semibold text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-black"
+              >
+                {initials}
+              </button>
+
+              {profileOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-950"
+                >
+                  <div className="flex items-center gap-3 border-b border-black/5 p-4 dark:border-white/10">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200 text-sm font-semibold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
+                      {initials}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{displayName}</p>
+                      <p className="truncate text-xs text-zinc-500">{user.email}</p>
+                    </div>
+                  </div>
+
+                  <dl className="space-y-2 p-4 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-zinc-500">Name</dt>
+                      <dd className="truncate font-medium">{user.name || "—"}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-zinc-500">Email</dt>
+                      <dd className="truncate font-medium">{user.email}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-zinc-500">User ID</dt>
+                      <dd className="font-medium">{user.id}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="border-t border-black/5 p-2 dark:border-white/10">
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        handleLogout();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                    >
+                      <Icon.Logout className="h-4 w-4" />
+                      Log out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
