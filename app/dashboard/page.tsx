@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, clearUser, type AppUser } from "../lib/auth";
+import AiAssistant from "./AiAssistant";
+import Showroom from "./Showroom";
 import {
   listCars,
   createCar,
@@ -79,13 +81,17 @@ const Icon = {
   Grip: (p: IconProps) => (
     <svg viewBox="0 0 24 24" fill="currentColor" className={p.className}><circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" /></svg>
   ),
+  Cube: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>
+  ),
 };
 
-type Tab = "Dashboard" | "Inventory" | "Sales" | "Customers" | "Reports" | "Settings";
+type Tab = "Dashboard" | "Inventory" | "Showroom" | "Sales" | "Customers" | "Reports" | "Settings";
 
 const NAV: { label: Tab; icon: typeof Icon.Grid }[] = [
   { label: "Dashboard", icon: Icon.Grid },
   { label: "Inventory", icon: Icon.Car },
+  { label: "Showroom", icon: Icon.Cube },
   { label: "Sales", icon: Icon.Tag },
   { label: "Customers", icon: Icon.Users },
   { label: "Reports", icon: Icon.Chart },
@@ -584,6 +590,14 @@ export default function DashboardPage() {
               </>
             )}
 
+            {/* ----- SHOWROOM ----- */}
+            {activeTab === "Showroom" && (
+              <>
+                <PageHeading title="Showroom" subtitle="View your vehicles in 3D — rotate, zoom, and inspect." />
+                <Showroom cars={cars} />
+              </>
+            )}
+
             {/* ----- SALES ----- */}
             {activeTab === "Sales" && (
               <>
@@ -761,6 +775,9 @@ export default function DashboardPage() {
           </div>
         </Overlay>
       )}
+
+      {/* AI inventory assistant (floating, all tabs) */}
+      <AiAssistant cars={cars} />
     </div>
   );
 }
@@ -928,6 +945,7 @@ function CarFormModal({
     price: car?.price ?? 0,
     mileage: car?.mileage ?? 0,
     status: car?.status ?? "Available",
+    imageUrl: car?.imageUrl ?? "",
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -945,6 +963,7 @@ function CarFormModal({
         ...form,
         make: form.make.trim(),
         model: form.model.trim(),
+        imageUrl: form.imageUrl?.trim() || "",
       };
       const saved = isEdit
         ? await updateCar(car!.id, payload)
@@ -1001,6 +1020,28 @@ function CarFormModal({
             <input className={field} type="number" required min={0} step={1} value={form.mileage} onChange={(e) => set("mileage", Number(e.target.value))} />
           </label>
         </div>
+
+        <label className={labelCls}>
+          Image URL <span className="font-normal text-zinc-400">(optional — shown in Showroom)</span>
+          <input
+            className={field}
+            type="url"
+            value={form.imageUrl ?? ""}
+            onChange={(e) => set("imageUrl", e.target.value)}
+            placeholder="https://example.com/car-photo.jpg"
+          />
+        </label>
+        {form.imageUrl?.trim() ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={form.imageUrl}
+            alt="Preview"
+            className="h-28 w-full rounded-lg border border-black/10 object-cover dark:border-white/10"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : null}
 
         {error && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">{error}</p>

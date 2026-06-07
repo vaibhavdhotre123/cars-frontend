@@ -14,6 +14,7 @@ export type Car = {
   price: number;
   mileage: number;
   status: CarStatus;
+  imageUrl?: string | null;
 };
 
 // Fields the user supplies when creating/updating a car (no id).
