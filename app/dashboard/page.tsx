@@ -300,13 +300,19 @@ export default function DashboardPage() {
     .join("");
 
   const showInventoryControls = activeTab === "Dashboard" || activeTab === "Inventory";
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   // Definitions for the reorderable KPI cards, keyed so order can be persisted.
-  const kpiCards: Record<string, { label: string; value: string; hint: string; icon: React.ReactNode }> = {
-    total: { label: "Total inventory", value: number.format(stats.total), hint: "vehicles in stock", icon: <Icon.Car className="h-5 w-5" /> },
-    available: { label: "Available now", value: number.format(stats.available), hint: "ready to sell", icon: <Icon.Tag className="h-5 w-5" /> },
-    sold: { label: "Sold", value: number.format(stats.soldCount), hint: "closed deals", icon: <Icon.Up className="h-5 w-5" /> },
-    revenue: { label: "Revenue", value: currency.format(stats.revenue), hint: "from closed deals", icon: <Icon.Chart className="h-5 w-5" /> },
+  const kpiCards: Record<string, { label: string; value: string; hint: string; icon: React.ReactNode; accent: string }> = {
+    total: { label: "Total inventory", value: number.format(stats.total), hint: "vehicles in stock", icon: <Icon.Car className="h-5 w-5" />, accent: "indigo" },
+    available: { label: "Available now", value: number.format(stats.available), hint: "ready to sell", icon: <Icon.Tag className="h-5 w-5" />, accent: "emerald" },
+    sold: { label: "Sold", value: number.format(stats.soldCount), hint: "closed deals", icon: <Icon.Up className="h-5 w-5" />, accent: "violet" },
+    revenue: { label: "Revenue", value: currency.format(stats.revenue), hint: "from closed deals", icon: <Icon.Chart className="h-5 w-5" />, accent: "amber" },
   };
 
   // Shared props for the reusable inventory table.
@@ -323,9 +329,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50">
+    <div className="flex min-h-screen w-full bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
       {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-black/10 bg-white px-4 py-6 lg:flex dark:border-white/10 dark:bg-zinc-950">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-black/10 bg-white px-4 py-6 lg:flex dark:border-white/10 dark:bg-zinc-900">
         <div className="flex items-center gap-2 px-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black">
             <Icon.Car className="h-5 w-5" />
@@ -423,7 +429,7 @@ export default function DashboardPage() {
               {profileOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-950"
+                  className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900"
                 >
                   <div className="flex items-center gap-3 border-b border-black/5 p-4 dark:border-white/10">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200 text-sm font-semibold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
@@ -469,7 +475,7 @@ export default function DashboardPage() {
         </header>
 
         {/* Mobile tab nav (sidebar is hidden below lg) */}
-        <nav className="flex gap-1 overflow-x-auto border-b border-black/10 bg-white px-3 py-2 lg:hidden dark:border-white/10 dark:bg-zinc-950">
+        <nav className="flex gap-1 overflow-x-auto border-b border-black/10 bg-white px-3 py-2 lg:hidden dark:border-white/10 dark:bg-zinc-900">
           {NAV.map((item) => (
             <button
               key={item.label}
@@ -494,10 +500,20 @@ export default function DashboardPage() {
             {/* ----- DASHBOARD ----- */}
             {activeTab === "Dashboard" && (
               <>
-                <PageHeading
-                  title={`Welcome back, ${displayName} 👋`}
-                  subtitle="Here's what's happening across your dealership today."
-                />
+                <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                      Overview
+                    </p>
+                    <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+                      Welcome back, {displayName}
+                    </h1>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Here&apos;s what&apos;s happening across your dealership today.
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium text-zinc-400">{today}</p>
+                </div>
 
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {kpiOrder.map((key) => {
@@ -518,7 +534,7 @@ export default function DashboardPage() {
                         } ${dragOverKey === key && dragKey && dragKey !== key ? "ring-2 ring-black/30 dark:ring-white/40" : ""}`}
                       >
                         <Icon.Grip className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-zinc-600" />
-                        <StatCard label={card.label} value={card.value} hint={card.hint} icon={card.icon} />
+                        <StatCard label={card.label} value={card.value} hint={card.hint} icon={card.icon} accent={card.accent} />
                       </div>
                     );
                   })}
@@ -542,7 +558,7 @@ export default function DashboardPage() {
                   </div>
 
                   <section className="flex flex-col gap-6">
-                    <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                    <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
                       <h2 className="text-base font-semibold">Recently added</h2>
                       {cars.length === 0 ? (
                         <p className="mt-4 text-sm text-zinc-400">No vehicles yet.</p>
@@ -624,7 +640,7 @@ export default function DashboardPage() {
             {activeTab === "Customers" && (
               <>
                 <PageHeading title="Customers" subtitle="Buyer records and contact history." />
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-black/15 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-black/15 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-900">
                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-300">
                     <Icon.Users className="h-6 w-6" />
                   </span>
@@ -659,7 +675,7 @@ export default function DashboardPage() {
                 </section>
 
                 <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
                     <h2 className="text-base font-semibold">Inventory by status</h2>
                     {cars.length === 0 ? (
                       <p className="mt-4 text-sm text-zinc-400">No data yet.</p>
@@ -674,7 +690,7 @@ export default function DashboardPage() {
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
                     <h2 className="text-base font-semibold">Inventory by make</h2>
                     {byMake.length === 0 ? (
                       <p className="mt-4 text-sm text-zinc-400">No data yet.</p>
@@ -696,7 +712,7 @@ export default function DashboardPage() {
               <>
                 <PageHeading title="Settings" subtitle="Your account and app preferences." />
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
                     <h2 className="text-base font-semibold">Account</h2>
                     <dl className="mt-4 space-y-3 text-sm">
                       <Row label="Name" value={user.name || "—"} />
@@ -705,7 +721,7 @@ export default function DashboardPage() {
                     </dl>
                   </div>
 
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
                     <h2 className="text-base font-semibold">Preferences</h2>
                     <dl className="mt-4 space-y-3 text-sm">
                       <Row label="Appearance" value="Follows system theme" />
@@ -811,7 +827,7 @@ function InventoryTable({
   emptyMessage?: string;
 }) {
   return (
-    <section className="rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
+    <section className="rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-900">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 p-4 dark:border-white/10">
         <div>
           <h2 className="text-base font-semibold">{title}</h2>
@@ -1102,7 +1118,7 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-black/10 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-zinc-950"
+        className="w-full max-w-md rounded-2xl border border-black/10 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -1111,25 +1127,36 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
   );
 }
 
+const STAT_ACCENTS: Record<string, string> = {
+  indigo: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400",
+  emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400",
+  amber: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400",
+  violet: "bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400",
+};
+
 function StatCard({
   label,
   value,
   hint,
   icon,
+  accent = "indigo",
 }: {
   label: string;
   value: string;
   hint: string;
   icon: React.ReactNode;
+  accent?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-950">
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
-        {icon}
-      </span>
-      <p className="mt-4 text-2xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-1 text-sm font-medium text-zinc-500">{label}</p>
-      <p className="text-xs text-zinc-400">{hint}</p>
+    <div className="rounded-2xl border border-black/[0.06] bg-white p-5 shadow-sm ring-1 ring-black/[0.02] transition-shadow hover:shadow-md dark:border-white/10 dark:bg-zinc-900 dark:ring-0">
+      <div className="flex items-center justify-between">
+        <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${STAT_ACCENTS[accent] ?? STAT_ACCENTS.indigo}`}>
+          {icon}
+        </span>
+        <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">{label}</p>
+      </div>
+      <p className="mt-4 text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+      <p className="mt-1 text-xs text-zinc-400">{hint}</p>
     </div>
   );
 }
