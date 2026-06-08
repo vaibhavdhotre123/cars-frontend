@@ -147,7 +147,7 @@ export default function Showroom({ cars }: { cars: Car[] }) {
       </div>
 
       {/* Feature / spec panel */}
-      <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+      <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
         {!car ? (
           <div className="flex h-full flex-col items-center justify-center py-16 text-center">
             <p className="text-sm text-zinc-500">No cars to display. Add a vehicle in Inventory to view it here.</p>

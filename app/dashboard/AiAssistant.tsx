@@ -58,7 +58,7 @@ export default function AiAssistant({ cars }: { cars: Car[] }) {
     <>
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-24 right-4 z-50 flex h-[520px] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl sm:right-6 dark:border-white/10 dark:bg-zinc-950">
+        <div className="fixed bottom-24 right-4 z-50 flex h-[520px] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl sm:right-6 dark:border-white/10 dark:bg-zinc-900">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-black/5 px-4 py-3 dark:border-white/10">
             <div className="flex items-center gap-2">
