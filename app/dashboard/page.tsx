@@ -84,6 +84,9 @@ const Icon = {
   Cube: (p: IconProps) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>
   ),
+  Upload: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 9 5-5 5 5" /><path d="M12 4v12" /></svg>
+  ),
 };
 
 type Tab = "Dashboard" | "Inventory" | "Showroom" | "Sales" | "Customers" | "Reports" | "Settings";
@@ -101,6 +104,21 @@ const NAV: { label: Tab; icon: typeof Icon.Grid }[] = [
 // Keys for the reorderable dashboard KPI cards (drag to rearrange; saved to localStorage).
 const DEFAULT_KPI_ORDER = ["total", "available", "sold", "revenue"];
 const KPI_STORAGE_KEY = "kpiOrder";
+
+// Accent color (Settings tab). Persisted to localStorage; applied to --accent.
+const DEFAULT_ACCENT = "#4f46e5";
+const ACCENT_STORAGE_KEY = "accent";
+const ACCENT_PRESETS = [
+  { name: "Indigo", hex: "#4f46e5" },
+  { name: "Blue", hex: "#2563eb" },
+  { name: "Sky", hex: "#0284c7" },
+  { name: "Teal", hex: "#0d9488" },
+  { name: "Emerald", hex: "#059669" },
+  { name: "Violet", hex: "#7c3aed" },
+  { name: "Rose", hex: "#e11d48" },
+  { name: "Amber", hex: "#d97706" },
+  { name: "Slate", hex: "#475569" },
+];
 
 const STATUS_STYLES: Record<CarStatus, string> = {
   Available: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-400/20",
@@ -121,6 +139,7 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<"All" | CarStatus>("All");
   const [activeTab, setActiveTab] = useState<Tab>("Dashboard");
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [accent, setAccent] = useState(DEFAULT_ACCENT);
 
   // Drag-to-reorder state for the KPI cards.
   const [kpiOrder, setKpiOrder] = useState<string[]>(DEFAULT_KPI_ORDER);
@@ -163,9 +182,13 @@ export default function DashboardPage() {
     if (checked) refresh();
   }, [checked, refresh]);
 
-  // Reflect the theme the init script already applied to <html>.
+  // Reflect the theme + accent the init script already applied.
   useEffect(() => {
     setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+    try {
+      const savedAccent = localStorage.getItem(ACCENT_STORAGE_KEY);
+      if (savedAccent) setAccent(savedAccent);
+    } catch {}
   }, []);
 
   // Close the profile popup when clicking outside it or pressing Escape.
@@ -263,13 +286,34 @@ export default function DashboardPage() {
     router.replace("/login");
   }
 
-  function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
+  function setThemeTo(next: "light" | "dark") {
     document.documentElement.classList.toggle("dark", next === "dark");
     try {
       localStorage.setItem("theme", next);
     } catch {}
     setTheme(next);
+  }
+
+  function toggleTheme() {
+    setThemeTo(theme === "dark" ? "light" : "dark");
+  }
+
+  // Apply an accent color app-wide (drives the --accent CSS variable) and persist it.
+  function applyAccent(hex: string) {
+    document.documentElement.style.setProperty("--accent", hex);
+    try {
+      localStorage.setItem(ACCENT_STORAGE_KEY, hex);
+    } catch {}
+    setAccent(hex);
+  }
+
+  function resetPreferences() {
+    applyAccent(DEFAULT_ACCENT);
+    setThemeTo("light");
+    setKpiOrder(DEFAULT_KPI_ORDER);
+    try {
+      localStorage.removeItem(KPI_STORAGE_KEY);
+    } catch {}
   }
 
   // Move the dragged KPI card to the dropped-on card's position and persist.
@@ -333,7 +377,7 @@ export default function DashboardPage() {
       {/* Sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-black/10 bg-white px-4 py-6 lg:flex dark:border-white/10 dark:bg-zinc-900">
         <div className="flex items-center gap-2 px-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
             <Icon.Car className="h-5 w-5" />
           </span>
           <span className="text-lg font-semibold tracking-tight">Cars</span>
@@ -348,7 +392,7 @@ export default function DashboardPage() {
               aria-current={activeTab === item.label ? "page" : undefined}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === item.label
-                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  ? "bg-[var(--accent)] text-white"
                   : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
               }`}
             >
@@ -374,7 +418,7 @@ export default function DashboardPage() {
         {/* Top bar */}
         <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-black/10 bg-white/80 px-4 py-3 backdrop-blur sm:px-6 dark:border-white/10 dark:bg-black/60">
           <div className="lg:hidden flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
               <Icon.Car className="h-4 w-4" />
             </span>
           </div>
@@ -398,7 +442,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setModal({ car: null })}
-                className="flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
               >
                 <Icon.Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Add car</span>
@@ -421,7 +465,7 @@ export default function DashboardPage() {
                 title="Account"
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-sm font-semibold text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-black"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-sm font-semibold text-white transition-opacity hover:opacity-90"
               >
                 {initials}
               </button>
@@ -484,7 +528,7 @@ export default function DashboardPage() {
               aria-current={activeTab === item.label ? "page" : undefined}
               className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                 activeTab === item.label
-                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  ? "bg-[var(--accent)] text-white"
                   : "text-zinc-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
               }`}
             >
@@ -502,7 +546,7 @@ export default function DashboardPage() {
               <>
                 <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                       Overview
                     </p>
                     <h1 className="mt-1 text-2xl font-semibold tracking-tight">
@@ -710,21 +754,85 @@ export default function DashboardPage() {
             {/* ----- SETTINGS ----- */}
             {activeTab === "Settings" && (
               <>
-                <PageHeading title="Settings" subtitle="Your account and app preferences." />
+                <PageHeading title="Settings" subtitle="Personalize the app and manage your account." />
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  {/* Appearance */}
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
+                    <h2 className="text-base font-semibold">Appearance</h2>
+                    <p className="mt-1 text-xs text-zinc-500">Customize how the dashboard looks.</p>
+
+                    {/* Theme */}
+                    <div className="mt-5">
+                      <p className="text-sm font-medium">Theme</p>
+                      <div className="mt-2 inline-flex rounded-lg border border-black/10 p-1 dark:border-white/15">
+                        {(["light", "dark"] as const).map((t) => (
+                          <button
+                            key={t}
+                            onClick={() => setThemeTo(t)}
+                            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                              theme === t
+                                ? "bg-[var(--accent)] text-white"
+                                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                            }`}
+                          >
+                            {t === "dark" ? <Icon.Moon className="h-4 w-4" /> : <Icon.Sun className="h-4 w-4" />}
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Accent color */}
+                    <div className="mt-6">
+                      <p className="text-sm font-medium">Accent color</p>
+                      <p className="text-xs text-zinc-500">Recolors buttons, highlights and the active menu.</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                        {ACCENT_PRESETS.map((p) => (
+                          <button
+                            key={p.hex}
+                            onClick={() => applyAccent(p.hex)}
+                            title={p.name}
+                            aria-label={p.name}
+                            aria-pressed={accent.toLowerCase() === p.hex.toLowerCase()}
+                            className={`h-8 w-8 rounded-full transition-transform hover:scale-110 ${
+                              accent.toLowerCase() === p.hex.toLowerCase()
+                                ? "ring-2 ring-offset-2 ring-zinc-900 ring-offset-white dark:ring-white dark:ring-offset-zinc-900"
+                                : ""
+                            }`}
+                            style={{ backgroundColor: p.hex }}
+                          />
+                        ))}
+                        {/* Custom color */}
+                        <label
+                          title="Custom color"
+                          className="relative flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-black/25 text-sm text-zinc-400 dark:border-white/30"
+                        >
+                          <input
+                            type="color"
+                            value={accent}
+                            onChange={(e) => applyAccent(e.target.value)}
+                            className="h-10 w-10 cursor-pointer border-0 bg-transparent p-0 opacity-0"
+                          />
+                          <span className="pointer-events-none absolute">+</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={resetPreferences}
+                      className="mt-6 rounded-full border border-black/15 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                    >
+                      Reset to defaults
+                    </button>
+                  </div>
+
+                  {/* Account & data */}
                   <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
                     <h2 className="text-base font-semibold">Account</h2>
                     <dl className="mt-4 space-y-3 text-sm">
                       <Row label="Name" value={user.name || "—"} />
                       <Row label="Email" value={user.email} />
                       <Row label="User ID" value={String(user.id)} />
-                    </dl>
-                  </div>
-
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-                    <h2 className="text-base font-semibold">Preferences</h2>
-                    <dl className="mt-4 space-y-3 text-sm">
-                      <Row label="Appearance" value="Follows system theme" />
                       <Row label="Data source" value="cars-backend (live)" />
                       <Row label="Vehicles loaded" value={number.format(cars.length)} />
                     </dl>
@@ -739,7 +847,7 @@ export default function DashboardPage() {
                       </button>
                       <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                        className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
                       >
                         <Icon.Logout className="h-4 w-4" />
                         Log out
@@ -965,9 +1073,29 @@ function CarFormModal({
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   function set<K extends keyof CarInput>(key: K, value: CarInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  // Read an uploaded image as a base64 data URL so it can be saved to the DB.
+  function handleFile(file?: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image is too large — please use one under 2 MB.");
+      return;
+    }
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () => set("imageUrl", String(reader.result));
+    reader.onerror = () => setError("Could not read that file.");
+    reader.readAsDataURL(file);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -993,19 +1121,88 @@ function CarFormModal({
   }
 
   const field =
-    "rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-black dark:border-white/20 dark:focus:border-white";
+    "rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--accent)] dark:border-white/20";
   const labelCls = "flex flex-col gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300";
+  const hasImage = !!form.imageUrl?.trim();
+  const isUploaded = !!form.imageUrl?.startsWith("data:");
 
   return (
-    <Overlay onClose={() => !busy && onClose()}>
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{isEdit ? "Edit car" : "Add car"}</h3>
+    <Overlay onClose={() => !busy && onClose()} size="lg">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">{isEdit ? "Edit car" : "Add car"}</h3>
+          <p className="mt-0.5 text-sm text-zinc-500">
+            {isEdit ? "Update this vehicle's details and photo." : "Add a new vehicle to your inventory."}
+          </p>
+        </div>
         <button onClick={() => !busy && onClose()} className="rounded-md p-1 text-zinc-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white">
           <Icon.Close className="h-5 w-5" />
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
+        {/* Photo upload */}
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Photo</span>
+
+          {hasImage ? (
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={form.imageUrl as string}
+                alt="Car preview"
+                className="h-48 w-full rounded-xl border border-black/10 object-cover dark:border-white/10"
+                onError={() => setError("That image couldn't be loaded.")}
+              />
+              <button
+                type="button"
+                onClick={() => set("imageUrl", "")}
+                title="Remove photo"
+                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+              >
+                <Icon.Trash className="h-4 w-4" />
+              </button>
+              <span className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur">
+                {isUploaded ? "Uploaded" : "From URL"}
+              </span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files?.[0]); }}
+              className={`flex h-44 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-sm transition-colors ${
+                dragOver
+                  ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                  : "border-black/15 hover:border-black/30 dark:border-white/20 dark:hover:border-white/40"
+              }`}
+            >
+              <Icon.Upload className="h-7 w-7 text-zinc-400" />
+              <span className="font-medium">Click to upload or drag &amp; drop</span>
+              <span className="text-xs text-zinc-400">PNG, JPG or WEBP · up to 2&nbsp;MB · saved with the car</span>
+            </button>
+          )}
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+
+          <input
+            className={field}
+            type="url"
+            value={isUploaded ? "" : (form.imageUrl ?? "")}
+            onChange={(e) => set("imageUrl", e.target.value)}
+            placeholder="…or paste an image URL"
+          />
+        </div>
+
+        {/* Details */}
         <div className="grid grid-cols-2 gap-4">
           <label className={labelCls}>
             Make
@@ -1037,28 +1234,6 @@ function CarFormModal({
           </label>
         </div>
 
-        <label className={labelCls}>
-          Image URL <span className="font-normal text-zinc-400">(optional — shown in Showroom)</span>
-          <input
-            className={field}
-            type="url"
-            value={form.imageUrl ?? ""}
-            onChange={(e) => set("imageUrl", e.target.value)}
-            placeholder="https://example.com/car-photo.jpg"
-          />
-        </label>
-        {form.imageUrl?.trim() ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={form.imageUrl}
-            alt="Preview"
-            className="h-28 w-full rounded-lg border border-black/10 object-cover dark:border-white/10"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
-          />
-        ) : null}
-
         {error && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">{error}</p>
         )}
@@ -1067,7 +1242,7 @@ function CarFormModal({
           <button type="button" onClick={() => !busy && onClose()} disabled={busy} className="rounded-full border border-black/15 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/5 disabled:opacity-60 dark:border-white/20 dark:hover:bg-white/10">
             Cancel
           </button>
-          <button type="submit" disabled={busy} className="flex items-center gap-2 rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200">
+          <button type="submit" disabled={busy} className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60">
             {busy && <Icon.Spinner className="h-4 w-4 animate-spin" />}
             {isEdit ? "Save changes" : "Add car"}
           </button>
@@ -1111,14 +1286,24 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 // ---- Reusable centered modal overlay --------------------------------------
-function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function Overlay({
+  children,
+  onClose,
+  size = "md",
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  size?: "md" | "lg";
+}) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm [animation:overlayFadeIn_120ms_ease-out]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-black/10 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-zinc-900"
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-black/10 bg-white p-6 shadow-2xl [animation:popupIn_160ms_cubic-bezier(0.16,1,0.3,1)] dark:border-white/10 dark:bg-zinc-900 ${
+          size === "lg" ? "max-w-lg" : "max-w-md"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}

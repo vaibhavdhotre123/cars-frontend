@@ -25,6 +25,8 @@ const themeInitScript = `
     var t = localStorage.getItem('theme');
     var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (dark) document.documentElement.classList.add('dark');
+    var a = localStorage.getItem('accent');
+    if (a) document.documentElement.style.setProperty('--accent', a);
   } catch (e) {}
 })();
 `;

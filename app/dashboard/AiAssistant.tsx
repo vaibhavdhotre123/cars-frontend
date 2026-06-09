@@ -62,7 +62,7 @@ export default function AiAssistant({ cars }: { cars: Car[] }) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-black/5 px-4 py-3 dark:border-white/10">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
                 <Sparkle className="h-4 w-4" />
               </span>
               <div>
@@ -103,7 +103,7 @@ export default function AiAssistant({ cars }: { cars: Car[] }) {
                 <div
                   className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
                     m.role === "user"
-                      ? "bg-black text-white dark:bg-white dark:text-black"
+                      ? "bg-[var(--accent)] text-white"
                       : "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-zinc-100"
                   }`}
                 >
@@ -139,7 +139,7 @@ export default function AiAssistant({ cars }: { cars: Car[] }) {
               type="submit"
               disabled={busy || !input.trim()}
               aria-label="Send"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-white transition-opacity hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-black"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               <Send className="h-4 w-4" />
             </button>
@@ -151,7 +151,7 @@ export default function AiAssistant({ cars }: { cars: Car[] }) {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close assistant" : "Open inventory assistant"}
-        className="fixed bottom-6 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-black text-white shadow-lg transition-transform hover:scale-105 sm:right-6 dark:bg-white dark:text-black"
+        className="fixed bottom-6 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-lg transition-transform hover:scale-105 sm:right-6"
       >
         {open ? <Close className="h-6 w-6" /> : <Sparkle className="h-6 w-6" />}
       </button>
