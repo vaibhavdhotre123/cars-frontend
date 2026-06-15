@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getUser, clearUser, type AppUser } from "../lib/auth";
 import AiAssistant from "./AiAssistant";
 import Showroom from "./Showroom";
+import CustomersPanel from "./CustomersPanel";
 import {
   listCars,
   createCar,
@@ -681,31 +682,7 @@ export default function DashboardPage() {
             )}
 
             {/* ----- CUSTOMERS ----- */}
-            {activeTab === "Customers" && (
-              <>
-                <PageHeading title="Customers" subtitle="Buyer records and contact history." />
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-black/15 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-900">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-300">
-                    <Icon.Users className="h-6 w-6" />
-                  </span>
-                  <h3 className="mt-4 text-lg font-semibold">No customer records yet</h3>
-                  <p className="mt-1 max-w-sm text-sm text-zinc-500">
-                    Customer management isn&apos;t connected to a backend yet. Once a
-                    customers API exists, buyers and their purchase history will appear here.
-                  </p>
-                  <p className="mt-4 text-xs text-zinc-400">
-                    {stats.soldCount} {stats.soldCount === 1 ? "deal has" : "deals have"} been closed so far.
-                  </p>
-                  <button
-                    type="button"
-                    disabled
-                    className="mt-6 cursor-not-allowed rounded-full border border-black/15 px-4 py-2 text-sm font-medium text-zinc-400 dark:border-white/15"
-                  >
-                    Add customer (coming soon)
-                  </button>
-                </div>
-              </>
-            )}
+            {activeTab === "Customers" && <CustomersPanel />}
 
             {/* ----- REPORTS ----- */}
             {activeTab === "Reports" && (
