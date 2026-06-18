@@ -6,6 +6,7 @@ import { getUser, clearUser, type AppUser } from "../lib/auth";
 import AiAssistant from "./AiAssistant";
 import Showroom from "./Showroom";
 import CustomersPanel from "./CustomersPanel";
+import { toastSuccess } from "../lib/toast";
 import {
   listCars,
   createCar,
@@ -275,6 +276,7 @@ export default function DashboardPage() {
       await deleteCar(deleting.id);
       setCars((prev) => prev.filter((c) => c.id !== deleting.id));
       setDeleting(null);
+      toastSuccess("Car deleted");
     } catch (err) {
       setRowError(err instanceof Error ? err.message : "Failed to delete car");
     } finally {
@@ -1053,9 +1055,45 @@ function CarFormModal({
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Real-world makes/models from the free NHTSA API (for autocomplete).
+  const [makes, setMakes] = useState<string[]>([]);
+  const [models, setModels] = useState<string[]>([]);
+
   function set<K extends keyof CarInput>(key: K, value: CarInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
+
+  // Load the list of real car makes once.
+  useEffect(() => {
+    let active = true;
+    fetch("/api/vehicle-data")
+      .then((r) => r.json())
+      .then((d) => active && setMakes(Array.isArray(d.makes) ? d.makes : []))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Load real models whenever the make changes (debounced).
+  useEffect(() => {
+    const make = form.make.trim();
+    if (!make) {
+      setModels([]);
+      return;
+    }
+    let active = true;
+    const t = setTimeout(() => {
+      fetch(`/api/vehicle-data?make=${encodeURIComponent(make)}`)
+        .then((r) => r.json())
+        .then((d) => active && setModels(Array.isArray(d.models) ? d.models : []))
+        .catch(() => {});
+    }, 350);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [form.make]);
 
   // Read an uploaded image as a base64 data URL so it can be saved to the DB.
   function handleFile(file?: File | null) {
@@ -1090,6 +1128,7 @@ function CarFormModal({
         ? await updateCar(car!.id, payload)
         : await createCar(payload);
       onSaved(saved, isEdit);
+      toastSuccess(isEdit ? "Car updated" : "Car added");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save car");
     } finally {
@@ -1183,11 +1222,21 @@ function CarFormModal({
         <div className="grid grid-cols-2 gap-4">
           <label className={labelCls}>
             Make
-            <input className={field} required value={form.make} onChange={(e) => set("make", e.target.value)} placeholder="Tesla" />
+            <input className={field} required list="nhtsa-makes" value={form.make} onChange={(e) => set("make", e.target.value)} placeholder="Tesla" autoComplete="off" />
+            <datalist id="nhtsa-makes">
+              {makes.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
           </label>
           <label className={labelCls}>
             Model
-            <input className={field} required value={form.model} onChange={(e) => set("model", e.target.value)} placeholder="Model S" />
+            <input className={field} required list="nhtsa-models" value={form.model} onChange={(e) => set("model", e.target.value)} placeholder="Model S" autoComplete="off" />
+            <datalist id="nhtsa-models">
+              {models.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
           </label>
           <label className={labelCls}>
             Year

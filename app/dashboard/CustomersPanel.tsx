@@ -10,6 +10,7 @@ import {
   type CustomerInput,
   type CustomerStatus,
 } from "../lib/customers";
+import { toastSuccess } from "../lib/toast";
 
 const STATUSES: CustomerStatus[] = ["Lead", "Active", "Inactive"];
 
@@ -95,6 +96,7 @@ export default function CustomersPanel() {
       await deleteCustomer(deleting.id);
       setCustomers((prev) => prev.filter((c) => c.id !== deleting.id));
       setDeleting(null);
+      toastSuccess("Customer deleted");
     } catch (err) {
       setRowError(err instanceof Error ? err.message : "Failed to delete customer");
     } finally {
@@ -290,6 +292,7 @@ function CustomerFormModal({
         ? await updateCustomer(customer!.id, payload)
         : await createCustomer(payload);
       onSaved(saved, isEdit);
+      toastSuccess(isEdit ? "Customer updated" : "Customer added");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save customer");
     } finally {
