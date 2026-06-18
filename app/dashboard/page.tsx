@@ -6,6 +6,7 @@ import { getUser, clearUser, type AppUser } from "../lib/auth";
 import AiAssistant from "./AiAssistant";
 import Showroom from "./Showroom";
 import CustomersPanel from "./CustomersPanel";
+import SalesPanel from "./SalesPanel";
 import { toastSuccess } from "../lib/toast";
 import {
   listCars,
@@ -250,8 +251,6 @@ export default function DashboardPage() {
     });
   }, [cars, query, filter]);
 
-  const soldCars = useMemo(() => cars.filter((c) => c.status === "Sold"), [cars]);
-  const reservedCars = useMemo(() => cars.filter((c) => c.status === "Reserved"), [cars]);
   const avgSale = stats.soldCount ? stats.revenue / stats.soldCount : 0;
 
   // Inventory grouped by make, most stock first — used by the Reports tab.
@@ -662,26 +661,7 @@ export default function DashboardPage() {
             )}
 
             {/* ----- SALES ----- */}
-            {activeTab === "Sales" && (
-              <>
-                <PageHeading title="Sales" subtitle="Closed deals and revenue performance." />
-                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <StatCard label="Units sold" value={number.format(stats.soldCount)} hint="all time" icon={<Icon.Tag className="h-5 w-5" />} />
-                  <StatCard label="Revenue" value={currency.format(stats.revenue)} hint="from closed deals" icon={<Icon.Chart className="h-5 w-5" />} />
-                  <StatCard label="Avg. sale price" value={currency.format(avgSale)} hint="per vehicle" icon={<Icon.Up className="h-5 w-5" />} />
-                  <StatCard label="Reserved" value={number.format(reservedCars.length)} hint="pending deals" icon={<Icon.Car className="h-5 w-5" />} />
-                </section>
-                <div className="mt-6">
-                  <InventoryTable
-                    {...tableCommon}
-                    title="Closed deals"
-                    subtitle={`${soldCars.length} sold`}
-                    items={soldCars}
-                    emptyMessage="No vehicles sold yet. Mark a car as “Sold” to see it here."
-                  />
-                </div>
-              </>
-            )}
+            {activeTab === "Sales" && <SalesPanel onSaleRecorded={refresh} />}
 
             {/* ----- CUSTOMERS ----- */}
             {activeTab === "Customers" && <CustomersPanel />}
@@ -1059,8 +1039,39 @@ function CarFormModal({
   const [makes, setMakes] = useState<string[]>([]);
   const [models, setModels] = useState<string[]>([]);
 
+  // VIN decoder.
+  const [vin, setVin] = useState("");
+  const [decoding, setDecoding] = useState(false);
+
   function set<K extends keyof CarInput>(key: K, value: CarInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  // Decode a VIN -> auto-fill make / model / year (free NHTSA API).
+  async function decodeVin() {
+    const v = vin.trim();
+    if (!v) return;
+    setDecoding(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/decode-vin?vin=${encodeURIComponent(v)}`);
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        make: data.make || f.make,
+        model: data.model || f.model,
+        year: data.year ? Number(data.year) : f.year,
+      }));
+      toastSuccess("VIN decoded");
+    } catch {
+      setError("Could not decode the VIN.");
+    } finally {
+      setDecoding(false);
+    }
   }
 
   // Load the list of real car makes once.
@@ -1157,6 +1168,32 @@ function CarFormModal({
       </div>
 
       <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
+        {/* VIN decoder */}
+        <div className="rounded-xl border border-black/10 bg-zinc-50 p-3 dark:border-white/10 dark:bg-white/5">
+          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Decode from VIN <span className="font-normal text-zinc-400">(optional)</span>
+          </span>
+          <div className="mt-1.5 flex gap-2">
+            <input
+              className={`${field} flex-1 uppercase tracking-wide`}
+              value={vin}
+              onChange={(e) => setVin(e.target.value.toUpperCase())}
+              placeholder="17-character VIN"
+              maxLength={17}
+            />
+            <button
+              type="button"
+              onClick={decodeVin}
+              disabled={decoding || !vin.trim()}
+              className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {decoding && <Icon.Spinner className="h-4 w-4 animate-spin" />}
+              Decode
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-zinc-400">Auto-fills make, model and year.</p>
+        </div>
+
         {/* Photo upload */}
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Photo</span>
