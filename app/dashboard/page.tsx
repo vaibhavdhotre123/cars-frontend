@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUser, clearUser, type AppUser } from "../lib/auth";
+import { getUser, clearUser, getAvatar, saveAvatar, removeAvatar, type AppUser } from "../lib/auth";
 import AiAssistant from "./AiAssistant";
 import Showroom from "./Showroom";
 import CustomersPanel from "./CustomersPanel";
@@ -152,6 +152,8 @@ export default function DashboardPage() {
   // Profile popup (top-right avatar menu).
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
 
   // Modal state: null = closed, { car: null } = add, { car } = edit.
   const [modal, setModal] = useState<{ car: Car | null } | null>(null);
@@ -178,6 +180,7 @@ export default function DashboardPage() {
       return;
     }
     setUser(current);
+    setAvatar(getAvatar(current.email));
     setChecked(true);
   }, [router]);
 
@@ -286,6 +289,34 @@ export default function DashboardPage() {
   function handleLogout() {
     clearUser();
     router.replace("/login");
+  }
+
+  // Upload a profile photo (stored per-user in the browser as a base64 data URL).
+  function handleAvatarFile(file?: File | null) {
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) {
+      toastSuccess("Please choose an image file.");
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      toastSuccess("Image too large — please use one under 1 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      saveAvatar(user.email, dataUrl);
+      setAvatar(dataUrl);
+      toastSuccess("Profile photo updated");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleRemoveAvatar() {
+    if (!user) return;
+    removeAvatar(user.email);
+    setAvatar(null);
+    toastSuccess("Profile photo removed");
   }
 
   function setThemeTo(next: "light" | "dark") {
@@ -405,9 +436,14 @@ export default function DashboardPage() {
         </nav>
 
         <div className="mt-auto flex items-center gap-3 rounded-xl border border-black/10 p-3 dark:border-white/10">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-sm font-semibold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
-            {initials}
-          </span>
+          {avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar} alt="Profile" className="h-9 w-9 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-sm font-semibold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
+              {initials}
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{displayName}</p>
             <p className="truncate text-xs text-zinc-500">{user.email}</p>
@@ -467,9 +503,14 @@ export default function DashboardPage() {
                 title="Account"
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-sm font-semibold text-white transition-opacity hover:opacity-90"
               >
-                {initials}
+                {avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  initials
+                )}
               </button>
 
               {profileOpen && (
@@ -477,14 +518,44 @@ export default function DashboardPage() {
                   role="menu"
                   className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900"
                 >
-                  <div className="flex items-center gap-3 border-b border-black/5 p-4 dark:border-white/10">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200 text-sm font-semibold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
-                      {initials}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{displayName}</p>
-                      <p className="truncate text-xs text-zinc-500">{user.email}</p>
+                  <div className="border-b border-black/5 p-4 dark:border-white/10">
+                    <div className="flex items-center gap-3">
+                      {avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={avatar} alt="Profile" className="h-12 w-12 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-200 text-base font-semibold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
+                          {initials}
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{displayName}</p>
+                        <p className="truncate text-xs text-zinc-500">{user.email}</p>
+                      </div>
                     </div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => avatarFileRef.current?.click()}
+                        className="flex-1 rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                      >
+                        {avatar ? "Change photo" : "Upload photo"}
+                      </button>
+                      {avatar && (
+                        <button
+                          onClick={handleRemoveAvatar}
+                          className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-white/20 dark:text-red-400 dark:hover:bg-red-950/40"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      ref={avatarFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAvatarFile(e.target.files?.[0])}
+                    />
                   </div>
 
                   <dl className="space-y-2 p-4 text-sm">

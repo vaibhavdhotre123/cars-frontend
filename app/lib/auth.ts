@@ -88,3 +88,27 @@ export function getUser(): AppUser | null {
 export function clearUser() {
   localStorage.removeItem(STORAGE_KEY);
 }
+
+// ---- Profile avatar (stored per-user in the browser) -----------------------
+// Keyed by email so it survives re-login (login only returns id/name/email).
+const AVATAR_PREFIX = "carsAvatar:";
+
+export function getAvatar(email: string): string | null {
+  try {
+    return localStorage.getItem(AVATAR_PREFIX + email);
+  } catch {
+    return null;
+  }
+}
+
+export function saveAvatar(email: string, dataUrl: string) {
+  try {
+    localStorage.setItem(AVATAR_PREFIX + email, dataUrl);
+  } catch {}
+}
+
+export function removeAvatar(email: string) {
+  try {
+    localStorage.removeItem(AVATAR_PREFIX + email);
+  } catch {}
+}
