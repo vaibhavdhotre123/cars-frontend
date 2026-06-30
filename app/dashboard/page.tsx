@@ -7,6 +7,8 @@ import AiAssistant from "./AiAssistant";
 import Showroom from "./Showroom";
 import CustomersPanel from "./CustomersPanel";
 import SalesPanel from "./SalesPanel";
+import ReportsPanel from "./ReportsPanel";
+import { DonutChart } from "./Charts";
 import { toastSuccess } from "../lib/toast";
 import {
   listCars,
@@ -253,15 +255,6 @@ export default function DashboardPage() {
       return matchesQuery && matchesFilter;
     });
   }, [cars, query, filter]);
-
-  const avgSale = stats.soldCount ? stats.revenue / stats.soldCount : 0;
-
-  // Inventory grouped by make, most stock first — used by the Reports tab.
-  const byMake = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const c of cars) counts.set(c.make, (counts.get(c.make) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  }, [cars]);
 
   function handleSaved(saved: Car, wasEdit: boolean) {
     setCars((prev) =>
@@ -676,6 +669,22 @@ export default function DashboardPage() {
 
                   <section className="flex flex-col gap-6">
                     <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
+                      <h2 className="text-base font-semibold">Inventory mix</h2>
+                      <p className="text-xs text-zinc-500">By status</p>
+                      <div className="mt-4">
+                        <DonutChart
+                          centerLabel="cars"
+                          size={150}
+                          data={[
+                            { label: "Available", value: cars.filter((c) => c.status === "Available").length, color: "#10b981" },
+                            { label: "Reserved", value: cars.filter((c) => c.status === "Reserved").length, color: "#f59e0b" },
+                            { label: "Sold", value: cars.filter((c) => c.status === "Sold").length, color: "#71717a" },
+                          ]}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
                       <h2 className="text-base font-semibold">Recently added</h2>
                       {cars.length === 0 ? (
                         <p className="mt-4 text-sm text-zinc-400">No vehicles yet.</p>
@@ -738,48 +747,7 @@ export default function DashboardPage() {
             {activeTab === "Customers" && <CustomersPanel />}
 
             {/* ----- REPORTS ----- */}
-            {activeTab === "Reports" && (
-              <>
-                <PageHeading title="Reports" subtitle="Inventory and sales analytics." />
-                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <StatCard label="Total units" value={number.format(stats.total)} hint="in catalogue" icon={<Icon.Car className="h-5 w-5" />} />
-                  <StatCard label="Stock value" value={currency.format(stats.stockValue)} hint="unsold at list price" icon={<Icon.Tag className="h-5 w-5" />} />
-                  <StatCard label="Revenue" value={currency.format(stats.revenue)} hint="from closed deals" icon={<Icon.Chart className="h-5 w-5" />} />
-                  <StatCard label="Avg. sale price" value={currency.format(avgSale)} hint="per vehicle" icon={<Icon.Up className="h-5 w-5" />} />
-                </section>
-
-                <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-                    <h2 className="text-base font-semibold">Inventory by status</h2>
-                    {cars.length === 0 ? (
-                      <p className="mt-4 text-sm text-zinc-400">No data yet.</p>
-                    ) : (
-                      <div className="mt-4 space-y-3">
-                        {STATUSES.map((s) => {
-                          const count = cars.filter((c) => c.status === s).length;
-                          const pct = Math.round((count / cars.length) * 100);
-                          return <Bar key={s} label={s} value={`${count} · ${pct}%`} pct={pct} />;
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
-                    <h2 className="text-base font-semibold">Inventory by make</h2>
-                    {byMake.length === 0 ? (
-                      <p className="mt-4 text-sm text-zinc-400">No data yet.</p>
-                    ) : (
-                      <div className="mt-4 space-y-3">
-                        {byMake.map(([make, count]) => {
-                          const pct = Math.round((count / cars.length) * 100);
-                          return <Bar key={make} label={make} value={String(count)} pct={pct} />;
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+            {activeTab === "Reports" && <ReportsPanel />}
 
             {/* ----- SETTINGS ----- */}
             {activeTab === "Settings" && (
@@ -1392,20 +1360,6 @@ function PageHeading({ title, subtitle }: { title: string; subtitle: string }) {
     <div className="mb-6">
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>
-    </div>
-  );
-}
-
-function Bar({ label, value, pct }: { label: string; value: string; pct: number }) {
-  return (
-    <div>
-      <div className="mb-1 flex justify-between text-xs">
-        <span className="text-zinc-500">{label}</span>
-        <span className="font-medium">{value}</span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
-        <div className="h-full rounded-full bg-black dark:bg-white" style={{ width: `${pct}%` }} />
-      </div>
     </div>
   );
 }
